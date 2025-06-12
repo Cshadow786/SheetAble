@@ -10,20 +10,46 @@ import FilePondPluginFileValidateType from "filepond-plugin-file-validate-type";
 import "filepond/dist/filepond.min.css";
 
 // Redux Imports
-import PropTypes from "prop-types";
-import { connect } from "react-redux";
-import { uploadSheet } from "../../Redux/Actions/dataActions";
+import PropTypes from "prop-types"; // type checks component props
+import { connect } from "react-redux"; // imports "connect from react-redux to connect component to redux
+import { uploadSheet } from "../../Redux/Actions/dataActions";  // imports an action creator uploadsheet from your redux actions
 
-registerPlugin(FilePondPluginFileValidateType);
+registerPlugin(FilePondPluginFileValidateType); //registers the file type validation plugin with filepong globally
 
 function DragNDrop({ giveModalData }) {
   //const [files, setFiles] = useState(undefined)
 
-  const uploadFinish = (files) => {
-    giveModalData(files[0].file);
-  };
+  const uploadFinish = (fileItems) => { //how to handle files after they are added/removed
+  const file = fileItems[0].file;
+  const fileName = file.name.toLowerCase();  // grabs file and standardizes name
 
-  const removeFile = () => {
+  if (fileName.endsWith(".abc")) {  // checks if abc file type
+    // Handle .abc file (send to backend for conversion)
+    console.log("Detected ABC file. Sending for conversion...");  // logs the file type is noticed
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch("/api/convert-abc", {  // sends the abc file to convert-abc
+      method: "POST",
+      body: formData,
+    })
+      .then((res) => res.blob())  // Converts response into a binary large object representing the abc turned into PDF file
+      .then((pdfBlob) => {
+        const pdfFile = new File([pdfBlob], file.name.replace(".abc", ".pdf"), {  // renames the file end to .PDF
+          type: "application/pdf",
+        });
+        giveModalData(pdfFile); // Passes converted PDF to parent
+      })
+      .catch((err) => console.error("ABC conversion failed", err));  // catches error
+  } else {
+    // Already a PDF, normal process
+    giveModalData(file);
+  }
+};
+
+
+  const removeFile = () => {  // removes file from handler
     giveModalData(undefined);
   };
 
@@ -31,9 +57,9 @@ function DragNDrop({ giveModalData }) {
     <div className="upload-container">
       <FilePond
         onupdatefiles={(files) => {
-          uploadFinish(files);
+          uploadFinish(files);  // makes sures to remove file when done
         }}
-        onremovefile={removeFile}
+        onremovefile={removeFile}  // prevents more the one file at once
         allowMultiple={false}
         server={{
           process: (
@@ -55,7 +81,7 @@ function DragNDrop({ giveModalData }) {
         labelIdle='Drag & Drop your file or <span class="filepond--label-action">Browse</span>'
         credits={false}
         allowFileTypeValidation={true}
-        acceptedFileTypes={["application/pdf"]}
+        acceptedFileTypes={["application/pdf", "text/plain", "text/*", "application/abc"]}  // limits the file type of acceptable files
       />
     </div>
   );
